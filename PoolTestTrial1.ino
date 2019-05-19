@@ -1,241 +1,176 @@
 // Buoyancy Compensator
 
-// MC A1 top limit switch (W)
-// MC A2 bottom limit switch (G)
-//
-//
-
-#include <SoftwareSerial.h>
-const byte interruptPin = 2;
-#define encoderPin 3 //Enconder
-volatile int position = 0;
-#define rxPin 4    // pin 4 connects to SMC TX
-#define txPin 5    // pin 5 connects to SMC RX
-#define resetPin 6 // pin 6 connects to SMC nRST
-#define errPin 7   // pin 7 connects to SMC ERR
-#define controlPin A3
-SoftwareSerial smcSerial = SoftwareSerial(rxPin, txPin);
- 
-// some variable IDs
-#define ERROR_STATUS 0
-#define LIMIT_STATUS 3
-#define TARGET_SPEED 20
-#define INPUT_VOLTAGE 23
-#define TEMPERATURE 24
-#define MAXPOS 12000
-#define MINPOS 1000
-#define MAXSPEED 3200
- 
-// some motor limit IDs
-#define FORWARD_ACCELERATION 10
-#define REVERSE_ACCELERATION 10
-#define DECELERATION 10
-#define SAMPLEPERIOD 10
-#define P_TO_V 14
-
-  double KP = 1;
-  int input_[SAMPLEPERIOD];
-  long input_t;
-  int pos_[SAMPLEPERIOD];
-  long pos_t;
-  double motor_speed = 0;
-  int time_ = 0;
-// read a serial byte (returns -1 if nothing received after the timeout expires)
-int readByte()
-{
-  char c;
-  if(smcSerial.readBytes(&c, 1) == 0){ return -1; }
-  return (byte)c;
-}
- 
-// required to allow motors to move
-// must be called when controller restarts and after any error
-void exitSafeStart()
-{
-  smcSerial.write(0x83);
-}
- 
-// speed should be a number from -3200 to 3200
-void setMotorSpeed(int speed)
-{
-  if (speed < 0)
-  {
-    smcSerial.write(0x86);  // motor reverse command
-    speed = -speed;  // make speed positive
-  }
-  else
-  {
-    smcSerial.write(0x85);  // motor forward command
-  }
-  smcSerial.write(speed & 0x1F);
-  smcSerial.write(speed >> 5);
-}
- 
-unsigned char setMotorLimit(unsigned char  limitID, unsigned int limitValue)
-{
-  smcSerial.write(0xA2);
-  smcSerial.write(limitID);
-  smcSerial.write(limitValue & 0x7F);
-  smcSerial.write(limitValue >> 7);
-  return readByte();
-}
- 
-// returns the specified variable as an unsigned integer.
-// if the requested variable is signed, the value returned by this function
-// should be typecast as an int.
-unsigned int getVariable(unsigned char variableID)
-{
-  smcSerial.write(0xA1);
-  smcSerial.write(variableID);
-  return readByte() + 256 * readByte();
-}
+/*
+// Simple buoyancy compensator code
+// 
+*/
+/* Things to add later
+ * Serial read so that it can change the setup from the serial command.
+ */
 
 
-void Count() 
-{
-  if(digitalRead(encoderPin) == HIGH){
-    position++;
-  }
-  else{
-    position--;
-  }
-}
+/************MOTOR SETUP***********/
+// motor on(HIGH)/off(LOW)
+#define motorEnable HIGH
+// motor mode setup
+#define FW 0
+#define BW 1
+#define BR 2
+/***** Motor Driver Truth Table*****
+* MODE PWM DIR OUTA OUTB Operation *
+* FW=1  H   H   H    L    Forward  *
+* BW=0  H   L   L    H    Reverse  *
+* BR=2  L   X   L    L    HardBrake*
+***********************************/
+//#define motorMode BW
 
-void Zero(){
-  setMotorSpeed(-1000);  // full-speed backwards
-  int reached_end = 0;
-  while(reached_end != 0x10)
-  {
-    if (digitalRead(errPin) == HIGH)
-    {
-      reached_end = (getVariable(ERROR_STATUS), HEX);
-      exitSafeStart();
-    }
-  }
-  exitSafeStart();
-  setMotorSpeed(0);
-  delay(100);
-  position = 0;
-}
- 
+// motor PWM setup
+// Ranging from (0 - 255)
+#define motorPWM 50
+
+
+/******Arudino pin definitions******/
+// Pins connected to Pololu Motor Driver
+#define dirPin 2 // motor direction output pin
+#define pwmPin 3 // pulse width modulation output pin
+#define slpPin 4 // sleep mode output pin. default LOW. 
+                  // Must be set to HIGH to enable the driver
+#define fltPin 10 // fault indicator input pin. 
+                  // This is driven LOW when fault has occurred.
+#define csPin A1 // current sense output (analog input pin)
+// Pins connected to the motor hall sensors (input pin)
+#define hs1Pin 7
+#define hs2Pin 8
+// Pins connected to the limit switches (input pin)
+#define ls1Pin 12
+#define ls2Pin 13
+// Pins connected to the pressure sensor (analog input pin)
+#define psPin A2
+
+int mode;
+
 void setup()
 {
-
-  Serial.begin(115200);    // for debugging (optional)
-  smcSerial.begin(9600);
-
-  pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), Count, RISING);
-
-  
-  // briefly reset SMC when Arduino starts up (optional)
-  pinMode(resetPin, OUTPUT);
-  digitalWrite(resetPin, LOW);  // reset SMC
-  delay(1);  // wait 1 ms
-  pinMode(resetPin, INPUT);  // let SMC run again
- 
-  // must wait at least 1 ms after reset before transmitting
-  delay(5);
- 
-  // this lets us read the state of the SMC ERR pin (optional)
-  pinMode(errPin, INPUT);
- 
-  smcSerial.write(0xAA);  // send baud-indicator byte
-  setMotorLimit(FORWARD_ACCELERATION, 15);
-  setMotorLimit(REVERSE_ACCELERATION, 15);
-  setMotorLimit(DECELERATION, 5);
-  // clear the safe-start violation and let the motor run
-  exitSafeStart();
-
-  Zero();
+  Serial.begin(9600);
+  // setup digital pin modes
+  pinMode(dirPin, OUTPUT);
+  pinMode(slpPin, OUTPUT);
+  pinMode(fltPin, INPUT);
+  pinMode(hs1Pin, INPUT);
+  pinMode(hs2Pin, INPUT);
+  pinMode(ls1Pin, INPUT);
+  pinMode(ls2Pin, INPUT);
+  pinMode(csPin, INPUT);
+  pinMode(psPin, INPUT);
+  // if analog input pin 0 is unconnected, random analog
+  // noise will cause the call to randomSeed() to generate
+  // different seed numbers each time the sketch runs.
+  // randomSeed() will then shuffle the random function.
+  randomSeed(analogRead(0));
 }
- 
+
+/**********MAIN FUNCTION**********/
 void loop()
 {
-  input_[time_] = analogRead(controlPin);
-  pos_[time_] = position;
-  Serial.println(position);
-      //int pr = (int)(analogRead(controlPin)/4);
+  readSensor();
+  if (digitalRead(ls1Pin) == 0 && digitalRead(ls2Pin) == 0) {
+    
+  }
+  else if (digitalRead(ls1Pin) == 1 && digitalRead(ls2Pin) == 0) {
+    mode = 0;
+  }
+  else if (digitalRead(ls1Pin) == 0 && digitalRead(ls2Pin) == 1) {
+    mode = 1;
+  }
+  else {
+    mode = 2;
+  }
+  motorDriver(mode);
+}
 
-        //Serial.write(pr);
-  
-  delay(10);
-  
-  if(time_ == 0)
-    {
-      input_t = 0;
-      pos_t = 0;
-      for (int i = 0; i<SAMPLEPERIOD; i++)
-      {
-        input_t += input_[i];
-        pos_t += pos_[i];
+/********FUNCTIONS********/
+
+/***************MOTOR DRIVER****************/
+void motorDriver(int motorMode){
+  // Check if the motor enable is assingned properly
+  if (motorEnable == HIGH || motorEnable == LOW){
+    
+    // Check if the motor mode is assigned correctly
+    if (motorMode == FW || motorMode == BW){
+
+      // Check if the pwm value is within a correct range
+      if (motorPWM >= 0 || motorPWM <= 255){ 
+        digitalWrite(dirPin, motorMode); // assign the mode of the motor
+        digitalWrite(slpPin, motorEnable); // assign the slp pin of the driver
+        analogWrite(pwmPin, motorPWM); // assign the pwm value of the motor
+        Serial.print("MODE:");
+        Serial.print(motorMode); // motor mode
+        Serial.print("\t");
+        Serial.print("PWM:");
+        Serial.print(motorPWM); // motor PWM
+        Serial.print("\t");
       }
-      motor_speed = KP*(input_t*P_TO_V-pos_t)/SAMPLEPERIOD;
-      if (pos_t/SAMPLEPERIOD > MAXPOS || pos_t/SAMPLEPERIOD < MINPOS)
-      motor_speed /= 5;
-      if(motor_speed>MAXSPEED)
-        motor_speed = MAXSPEED; 
-      else if(motor_speed<-MAXSPEED)
-        motor_speed = -MAXSPEED; 
-      setMotorSpeed(motor_speed); 
-   
-
-    }
-
-
-
-//      Serial.print(255);
       
-//      int pr = (int)(analogRead(controlPin)/4);
-//
-//        Serial.write(pr);
-//      if( pr / 256 >= 255){
-//        Serial.print(254);
-//      }else{
-//        Serial.print(pr/256);
-//      }
+      else {
+        digitalWrite(slpPin, LOW); // turn off the motor driver
+        Serial.println("Error: motor pwm value not assingned in a correct range");
+      }
+    }
+    else if(motorMode == BR){
+      analogWrite(pwmPin, LOW); // assign LOW to pwmPin to break
+      Serial.print("MODE:2\t"); // motor mode (BR = 2)
+      Serial.print("PWM:0\t"); // motor mode (LOW = 0)
+    }
+    
+    else {
+      digitalWrite(slpPin, LOW); // turn off the motor driver
+      Serial.println("Error: motor mode not assigned correctly.");
+    }
+  }
 
-//      int sp = (int)motor_speed ;
-//      if( sp % 256 >= 255){
-//        Serial.print(254);
-//      }else{
-//        Serial.print(sp%256);
-//      }
-//      
-//      if( sp / 256 >= 255){
-//        Serial.print(254);
-//      }else{
-//        Serial.print(sp / 256);
-//      }
-//
-//      int po  = position;
-//      if((po % 256) >= 255){
-//        Serial.print(254);
-//      }else{
-//        Serial.print(po % 256);
-//      }
-//      
-//      if((po / 256) >= 255){
-//        Serial.println(254);
-//      }else{
-//        Serial.println(po / 256);
-//      }
-
-    time_ = ++time_ % SAMPLEPERIOD;
- 
-  // if an error is stopping the motor, write the error status variable
-  // and try to re-enable the motor
-  if (digitalRead(errPin) == HIGH)
-  {
-//    Serial.print("Error Status: 0x");
-//    Serial.println(getVariable(ERROR_STATUS), HEX);
-    // once all other errors have been fixed,
-    // this lets the motors run again
-    exitSafeStart();
+  else {
+    digitalWrite(slpPin, LOW); // turn off the motor driver
+    Serial.println("Error: motor driver not enabled correctly");
   }
 }
 
+/**********READING SENSOR INPUTS**************/
+void readSensor() {
+  // Read the input values
+  Serial.print("FLT:");
+  Serial.print(digitalRead(fltPin)); // FLT pin readings
+  Serial.print("\t");
+  Serial.print("HS1:");
+  Serial.print(digitalRead(hs1Pin)); // hall sensor 1 readings
+  Serial.print("\t");
+  Serial.print("HS2:");
+  Serial.print(digitalRead(hs2Pin)); // hall sensor 2 readings
+  Serial.print("\t");
+  Serial.print("LS1:");
+  Serial.print(digitalRead(ls1Pin)); // limit switch 1 readings
+  Serial.print("\t");
+  Serial.print("LS2:");
+  Serial.print(digitalRead(ls2Pin)); // limit switch 2 readings
+  Serial.print("\t");
+  Serial.print("PS:");
+  Serial.print(analogRead(psPin)); // pressure sensor readings
+  Serial.print("\t");
+  Serial.print("CS:");
+  Serial.print(currentSensor(analogRead(csPin))); // current sensor readings
+  Serial.print("[A]");
+  Serial.print("\n");
+}
+
+/****CURRENT SENSOR CONVERSION*****/
+double currentSensor(int cs){
+  double i;
+  i = (cs * 5 / 1024 -0.05)/ 0.02; //A
+  return i;
+}
+
+//
 //Elec Steering joystick servo
+//
 
 #include <Servo.h>
 
