@@ -96,13 +96,13 @@ void loop(){
 void readInput() {
   joystick_x_in = analogRead(joyXPin);
   joystick_y_in = analogRead(joyYPin);
-  Serial.print("Read inputs");
+  //Serial.print("Read inputs");
 
   // Note: Changed to normal Arduino map function because betterMap is somehow wrong (I didn't do the math to figure out why). Normal map function seems to work well though. --Ryan Meshulam
   joystick_x_in = map(joystick_x_in, 101, 922, 0, 180);
   joystick_y_in = map(joystick_y_in, 101, 923, 0, 180);
-  Serial.print(joystick_x_in);
-  Serial.println(joystick_y_in);
+  //Serial.print(joystick_x_in);
+  //Serial.println(joystick_y_in);
   if (joystick_x_in < 97 && joystick_x_in > 83) {
     joystick_x_in = 90;
   }
