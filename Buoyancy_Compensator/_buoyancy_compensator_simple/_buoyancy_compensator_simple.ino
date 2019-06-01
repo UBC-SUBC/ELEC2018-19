@@ -75,7 +75,7 @@ void loop()
     
   }
   else if (digitalRead(ls1Pin) == 1 && digitalRead(ls2Pin) == 0) {
-    mode = 0;
+    mode = 0;  
   }
   else if (digitalRead(ls1Pin) == 0 && digitalRead(ls2Pin) == 1) {
     mode = 1;
