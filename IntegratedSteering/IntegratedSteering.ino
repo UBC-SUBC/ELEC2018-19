@@ -23,7 +23,7 @@ const int manualSwitchPin = 11;
 
 // Manual variables and objects
 int joystick_y_in, joystick_x_in;
-bool manualSwitch = true;
+bool manualSwitch = MANUAL;
 
 // IMU variables and objects
 MPU6050 sensor;
@@ -42,7 +42,7 @@ void setup(){
 
   // Initialize manual control
   pinMode(manualSwitchPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(manualSwitchPin), switchManual, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(manualSwitchPin), switchManual, CHANGE);
 
   // Initialize IMU
   Wire.begin();
@@ -116,9 +116,11 @@ void switchManual(){
   Serial.print("result of digitalread");
   Serial.println(manualSwitch);
   sensorWorking = sensor.testConnection();
-  if (sensorWorking){
+  Serial.println(sensorWorking);
+  /*if (sensorWorking){
     manualSwitch = digitalRead(manualSwitchPin);
   } else {
     manualSwitch = MANUAL;
-  }
+  }*/
+  manualSwitch=AUTOMATED;
 }
