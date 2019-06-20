@@ -99,7 +99,7 @@ void setup(){
     delay(1000);
     jewel.fill(jewel.Color(0,0,0));
   }
-  depthSensor.setModel(MS5837::MS5837_30BA);
+  depthSensor.setModel(MS5837::MS5837_02BA);
   depthSensor.setFluidDensity(997); // kg/m^3 (freshwater, 1029 for seawater)
 }
 
