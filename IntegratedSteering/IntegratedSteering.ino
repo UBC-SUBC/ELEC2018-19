@@ -93,13 +93,13 @@ void setup(){
   purple=jewel.Color(212, 17, 242);
 
   // Initialize buoyancy sensor
+  depthSensor.setModel(MS5837::MS5837_02BA);
   if (!depthSensor.init()){
     Serial.println("Buoyancy sensor initialization failed!");
     jewel.fill(red);
     delay(1000);
     jewel.fill(jewel.Color(0,0,0));
   }
-  depthSensor.setModel(MS5837::MS5837_02BA);
   depthSensor.setFluidDensity(997); // kg/m^3 (freshwater, 1029 for seawater)
 }
 
