@@ -8,6 +8,7 @@
 // Steering libraries
 #include <Servo.h>
 // Buoyancy libraries
+#include <MS5837.h>
 // Display library (Adafruit Neopixel Jewel)
 #include <Adafruit_NeoPixel.h>
 
@@ -43,6 +44,9 @@ MPU6050 sensor;
 bool sensorWorking = false;
 int16_t ax, ay, az, oldAX=90;
 int16_t gx, gy, gz;
+
+// Buoyancy sensor
+MS5837 depthSensor;
 
 // Display object and helpers
 Adafruit_NeoPixel jewel(NEOPIXEL_COUNT, JEWEL_PIN, NEO_GRB + NEO_KHZ800);
@@ -87,6 +91,16 @@ void setup(){
   blue=jewel.Color(0,0,255);
   green=jewel.Color(0,205,14);
   purple=jewel.Color(212, 17, 242);
+
+  // Initialize buoyancy sensor
+  if (!depthSensor.init()){
+    Serial.println("Buoyancy sensor initialization failed!");
+    jewel.fill(red);
+    delay(1000);
+    jewel.fill(jewel.Color(0,0,0));
+  }
+  depthSensor.setModel(MS5837::MS5837_30BA);
+  depthSensor.setFluidDensity(997); // kg/m^3 (freshwater, 1029 for seawater)
 }
 
 
@@ -147,8 +161,25 @@ void loop(){
     Serial.print(" ManualY:");
     Serial.println(joystick_y_in);
   }
+
+  // Buoyancy printout
+  depthSensor.read();
+  Serial.print("Pressure: "); 
+  Serial.print(depthSensor.pressure()); 
+  Serial.println(" mbar");
   
-  delay(100);
+  Serial.print("Temperature: "); 
+  Serial.print(depthSensor.temperature()); 
+  Serial.println(" deg C");
+  
+  Serial.print("Depth: "); 
+  Serial.print(depthSensor.depth()); 
+  Serial.println(" m");
+  
+  Serial.print("Altitude: "); 
+  Serial.print(depthSensor.altitude()); 
+  Serial.println(" m above mean sea level");
+  delay(10);
 
 }
 
@@ -181,7 +212,7 @@ void switchManual(){
   } else {
     manualSwitch = MANUAL;
   }
-  //manualSwitch=AUTOMATED;
+  manualSwitch=AUTOMATED;
 }
 
 int servoLimiter(int inputDegrees){
