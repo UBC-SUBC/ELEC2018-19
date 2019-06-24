@@ -34,8 +34,9 @@ int mode = FW;
 
 // motor PWM 
 // Ranging from (0 - 255)
-#define pwm 50
-//int pwm;
+//#define pwm 100
+int pwm;
+int initPWM = 100; //initial motor output
 
 
 /******Arudino pin definitions******/
@@ -61,7 +62,7 @@ MPU6050 IMU;
 bool IMUWorking = false;
 int16_t ax, ay, az, azPrev, oldAX=90;
 int16_t gx, gy, gz;
-
+const int azThreshold = 1000; //threshold for buoyancy accelearation
 // Buoyancy sensor (bar_02) setup
 MS5837 bar_02;
 double setDepth;
@@ -102,6 +103,7 @@ void setup()
   bar_02.read();//read pressure sensor
   setDepth = bar_02.depth(); //get the set depth value
   endBuoyancy = LOW;
+  pwm = initPWM;
   
   
   // setup digital pin modes
@@ -125,21 +127,30 @@ void loop()
     bar_02.read();//read pressure sensor
     depth = bar_02.depth(); //get depth value
     IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz); //get IMU values
-    if (abs(az) < 1000){ //stop the motor if the z accelearation is within the threshold
-      mode = BR; //stop the motor
-      endBuoyancy = HIGH;
-    }
-    else if (abs(setDepth - bar_02.depth()) < 0.1){//move the piston until the sub is close to the set depth
-      if (abs(az - azPrev) > 0 ){
-        mode = abs(mode - 1); //change the motor direction
+    if (abs(az) < azThreshold){
+      if (abs(setDepth - bar_02.depth()) < 0.1){
+        //stop the motor if the z accelearation is within the threshold
+        //and the submarine is at close to the set depth
+        mode = BR; //stop the motor
+        endBuoyancy = HIGH;
+        break;
       }
-      //renew the setDepth
-      setDepth = bar_02.depth();
+      //slow down the motor when the motor is in the acceleration threshold
+      pwm--;
     }
-    
+    else if ( (abs(az) - abs(azPrev))  > 0 ){
+      //compare the current z acceleration with the previous value
+      //and change dirction if the current value is accelerating more 
+      //than the previous value
+      mode = abs(mode - 1); //change the motor direction      
+    }
+    //renew the setDepth and azPrev
+    setDepth = bar_02.depth();
+    azPrev = az;
+        
     //check the limit sensor
     if (digitalRead(ls1Pin) == LOW && digitalRead(ls2Pin) == LOW) {
-      lsCount = 0; //reset the ls Count
+      lsCount = 0; //reset the lsCount
     }
     else if (digitalRead(ls1Pin) == HIGH && digitalRead(ls2Pin) == HIGH) {
       mode = BR; //stop the motor
@@ -189,7 +200,8 @@ void motorDriver(int motorMode, int motorPwm){
       
       else {
         digitalWrite(slpPin, LOW); // turn off the motor driver
-        Serial.println("Error: motor pwm value not assingned in a correct range");
+        Serial.println("Error: motor pwm value not assingned in a correct range. End buoyancy compensator...");
+        endBuoyancy = HIGH;
       }
     }
     else if(motorMode == BR){
@@ -200,19 +212,21 @@ void motorDriver(int motorMode, int motorPwm){
     
     else {
       digitalWrite(slpPin, LOW); // turn off the motor driver
-      Serial.println("Error: motor mode not assigned correctly.");
+      Serial.println("Error: motor mode not assigned correctly. End buoyancy compensator...");
+      endBuoyancy = HIGH;
     }
   }
 
   else {
     digitalWrite(slpPin, LOW); // turn off the motor driver
-    Serial.println("Error: motor driver not enabled correctly");
+    Serial.println("Error: motor driver not enabled correctly. End buoyancy compensator...");
+    endBuoyancy = HIGH;
   }
 }
 
 /**********READING SENSOR INPUTS**************/
 void readSensors() {
-  // Read the input values
+  // Read the input values (use for troubleshooting input sensors)
   Serial.print("READ SENSOR:\t");
   //Serial.print("FLT:");
   //Serial.print(digitalRead(fltPin)); // FLT pin readings
