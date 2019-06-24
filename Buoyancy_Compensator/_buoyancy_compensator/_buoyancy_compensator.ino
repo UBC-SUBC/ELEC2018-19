@@ -36,7 +36,7 @@ int mode = FW;
 // Ranging from (0 - 255)
 //#define pwm 100
 int pwm;
-int initPWM = 100; //initial motor output
+int initPWM = 100; //initial motor output (adjustable)
 
 
 /******Arudino pin definitions******/
@@ -62,7 +62,7 @@ MPU6050 IMU;
 bool IMUWorking = false;
 int16_t ax, ay, az, azPrev, oldAX=90;
 int16_t gx, gy, gz;
-const int azThreshold = 1000; //threshold for buoyancy accelearation
+
 // Buoyancy sensor (bar_02) setup
 MS5837 bar_02;
 double setDepth;
@@ -102,6 +102,7 @@ void setup()
   bar_02.setFluidDensity(997); // kg/m^3 (997 freshwater, 1029 for seawater)
   bar_02.read();//read pressure sensor
   setDepth = bar_02.depth(); //get the set depth value
+  // buoyancy compensator initialization
   endBuoyancy = LOW;
   pwm = initPWM;
   
