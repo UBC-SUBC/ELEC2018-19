@@ -9,10 +9,6 @@
 #include <MPU6050.h>
 // Steering libraries
 #include <Servo.h>
-// bar_02 pressure sensor libraries
-#include <MS5837.h>
-// Display library (Adafruit Neopixel Jewel)
-#include <Adafruit_NeoPixel.h>
 
 /***Arduino pin assignments***/
 //Joystick pins
@@ -21,25 +17,8 @@ const int joyYPin = A1;
 //Servo pins
 const int xservoPin = 9;
 const int yservoPin = 10;
-const int manualSwitchPin = 11;
-// Pins connected to Pololu Motor Driver
-#define dirPin 2 // motor direction output pin
-#define pwmPin 3 // pulse width modulation output pin
-#define slpPin 4 // sleep mode output pin. default LOW. 
-                  // Must be set to HIGH to enable the driver
-// Pins connected to the limit switches (input pin)
-#define ls1Pin 12
-#define ls2Pin 13
-// Pin A4 and A5 are reserved for I2C sensors
 
-// Initialize servos
-Servo xservo;
-Servo yservo;
-
-// Display constants
-#define JEWEL_PIN 7
-#define NEOPIXEL_COUNT 7
-
+// ANNA? 
 // Steering constants
 #define MANUAL true
 #define AUTOMATED false
@@ -50,54 +29,103 @@ Servo yservo;
 
 #define SERVORANGE 36
 
+// ANNA??
 // Manual variables and objects
 int joystick_y_in, joystick_x_in;
 bool manualSwitch = MANUAL;
 
 // IMU variables and objects
+
 MPU6050 IMU;
 bool IMUWorking = false;
 int16_t ax, ay, az, azPrev, oldAX=90;
 int16_t gx, gy, gz;
 
-// Buoyancy compensator setup
-bool endBuoyancy;
-/************bar_02 SETUP***********/
-MS5837 bar_02; // bar_02 pressure sensor
-double setDepth;
-double depth;
-/************MOTOR SETUP***********/
-// motor on(HIGH)/off(LOW)
-#define motorEnable HIGH
-// motor mode setup
-#define FW 0
-#define BW 1
-#define BR 2
-/***** Motor Driver Truth Table*****
-* MODE PWM DIR OUTA OUTB Operation *
-* FW=1  H   H   H    L    Forward  *
-* BW=0  H   L   L    H    Reverse  *
-* BR=2  L   X   L    L    HardBrake*
-***********************************/
-//#define motorMode BW
-int mode = FW;
-// motor PWM: Ranging from (0 - 255)
-//#define pwm 100
-int pwm;
-int initPWM = 100; //initial motor output (adjustable)
-/************az SETUP***********/
-const int azThreshold = 1000; //threshold for buoyancy accelearation (adjustable)
-/************LIMIT SWITCH SETUP***********/
-int lsCount; // Limit switch setup
-// End of buoyancy compensator setup
+// Pin A4 and A5 are reserved for I2C sensors
 
-// Display object and helpers
-Adafruit_NeoPixel jewel(NEOPIXEL_COUNT, JEWEL_PIN, NEO_GRB + NEO_KHZ800);
-uint32_t red, blue, green, purple;
+// Initialize servos
+Servo xservo;
+Servo yservo;
 
-int servoLimiter(int);
+/** No buoyancy compensator so these are unnecessary
+  //bar_02 pressure sensor libraries
+  #include <MS5837.h>
+  Display library (Adafruit Neopixel Jewel)
+  #include <Adafruit_NeoPixel.h> 
+ */
 
-/********MAIN SETUP FUNCTION********/
+/***** All of these are unnecessary because no buoyancy compensator yet
+  // Switch attached currently, moving to a software switch
+    // const int manualSwitchPin = 11;
+
+    // Pins connected to Pololu Motor Driver
+    //#define dirPin 2 // motor direction output pin
+    //#define pwmPin 3 // pulse width modulation output pin
+    //#define slpPin 4 // sleep mode output pin. default LOW. 
+                  // Must be set to HIGH to enable the driver
+    // Pins connected to the limit switches (input pin)
+    //#define ls1Pin 12
+    //#define ls2Pin 13
+******/
+
+/*** Start No display attached currently 
+  // Display constants
+  //#define JEWEL_PIN 7
+  //#define NEOPIXEL_COUNT 7
+
+End No display currently attached ***/
+
+/*** START No Buoyancy Compensator Attached 
+  // Buoyancy compensator setup
+
+  bool endBuoyancy;
+  **********bar_02 SETUP***********
+  
+  MS5837 bar_02; // bar_02 pressure sensor
+  double setDepth;
+  double depth;
+  ************MOTOR SETUP***********
+  
+  motor on(HIGH)/off(LOW)
+  #define motorEnable HIGH
+  motor mode setup
+  #define FW 0
+  #define BW 1
+  #define BR 2
+  /***** Motor Driver Truth Table*****
+  * MODE PWM DIR OUTA OUTB Operation *
+  * FW=1  H   H   H    L    Forward  *
+  * BW=0  H   L   L    H    Reverse  *
+  * BR=2  L   X   L    L    HardBrake*
+  ***********************************
+  #define motorMode BW
+  int mode = FW;
+  motor PWM: Ranging from (0 - 255)
+  #define pwm 100
+  int pwm;
+  int  initPWM = 100; //initial motor output (adjustable)
+  /************az SETUP***********
+  const int azThreshold = 1000; //threshold for buoyancy accelearation (adjustable)
+  /************LIMIT SWITCH SETUP***********
+  // int lsCount; // Limit switch setup
+  // End of buoyancy compensator setup
+
+  // Display object and helpers
+  // Adafruit_NeoPixel jewel(NEOPIXEL_COUNT, JEWEL_PIN, NEO_GRB + NEO_KHZ800);
+  // uint32_t red, blue, green, purple;
+
+  int servoLimiter(int);
+
+End No Buoyancy Compensator Attached 
+*****/ 
+
+
+/******
+***
+MAIN SETUP FUNCTION
+***
+******/
+
 void setup(){
 
   // Initialize serial monitoring
@@ -108,8 +136,8 @@ void setup(){
   xservo.attach(xservoPin);
 
   // Initialize manual control
-  pinMode(manualSwitchPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(manualSwitchPin), switchManual, CHANGE);
+  // pinMode(manualSwitchPin, INPUT_PULLUP);
+  // attachInterrupt(digitalPinToInterrupt(manualSwitchPin), switchManual, CHANGE);
 
   // Initialize IMU
   Wire.begin();
@@ -124,43 +152,101 @@ void setup(){
   } else {
     Serial.println("Connection failed");
   }
-  switchManual();
+  // switchManual();
 
-  // Initialize display
-  jewel.begin();
-  jewel.fill(jewel.Color(0,0,0));
-  jewel.setBrightness(20);
-  jewel.show();
-  red=jewel.Color(255,0,0);
-  blue=jewel.Color(0,0,255);
-  green=jewel.Color(0,205,14);
-  purple=jewel.Color(212, 17, 242);
+  /*** START No display currently attached
+    // Initialize display and variables
+      jewel.begin();
+      jewel.fill(jewel.Color(0,0,0));
+      jewel.setBrightness(20);
+      jewel.show();
+      red=jewel.Color(255,0,0);
+      blue=jewel.Color(0,0,255);
+      green=jewel.Color(0,205,14);
+      purple=jewel.Color(212, 17, 242);
 
-  // Initialize bar02(MS5837) pressure sensor
-  bar_02.setModel(MS5837::MS5837_02BA);
-  if (!bar_02.init()){
-    Serial.println("Pressure sensor initialization failed!");
-    delay(1000);
-  }
-  bar_02.setFluidDensity(997); // kg/m^3 (997 freshwater, 1029 for seawater)
-  bar_02.read();//read pressure sensor
-  setDepth = bar_02.depth(); //get the set depth value
-  // Initialize buoyancy compensator variable
-  endBuoyancy = LOW;
-  pwm = initPWM;
+      Initialize bar02(MS5837) pressure sensor
+        bar_02.setModel(MS5837::MS5837_02BA);
+        if (!bar_02.init()){
+        Serial.println("Pressure sensor initialization failed!");
+        delay(1000);
+      }
+      
+      bar_02.setFluidDensity(997); // kg/m^3 (997 freshwater, 1029 for seawater)
+      bar_02.read();//read pressure sensor
+      // setDepth = bar_02.depth(); //get the set depth value
+    // Initialize buoyancy compensator variable
+    // endBuoyancy = LOW;
+    // pwm = initPWM;
+  } 
+ 
+END No display currently attached***/
 }
 
-/********MAIN LOOP FUNCTION********/
-void loop(){
-  /******BUOYANCY COMPENSATOR START*******/
-  while (endBuoyancy == LOW){
-    //readSensors();//input singals. For troubleshooting purpose.\
 
+/********MAIN LOOP FUNCTION********/
+
+void loop(){
+
+  // jewel.show();
+  
+// Since x is not controlled by the IMU, we can put it outside of the for loop.
+  readInput();
+  joystick_x_in=servoLimiter(joystick_x_in);
+  xservo.write(joystick_x_in);
+  Serial.print("X:");
+  Serial.print(joystick_x_in);
+  
+  if (manualSwitch==AUTOMATED) {
+    IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
+    /*Serial.print("IMU:");
+    Serial.print(ax);
+    Serial.print(" ");
+    Serial.print(gx);
+    Serial.print(" ");
+    Serial.print(ay, 4);
+    Serial.print(gy,4);
+    Serial.print(" ");
+    Serial.print(az, 4);
+    Serial.print(gz,4);*/
+    ax = map (ax, -17000, 21000, 0, 180) ;
+
+    if (ax>90-ORIGINERROR&&ax<90+ORIGINERROR){
+      ax=90;
+    } 
+    
+    else if(ax>oldAX-SMOOTHINGERROR&&ax<oldAX+SMOOTHINGERROR){
+      ax=oldAX;
+    }
+
+    ax=servoLimiter(ax);
+    Serial.print(" AutomatedY:");
+    Serial.print(ax);
+
+    Serial.println("");
+
+    yservo.write (ax);
+    oldAX=ax;
+    //delay (200);
+  } else {
+    //Serial.println("Manual steering is on!");
+    joystick_y_in=servoLimiter(joystick_y_in);
+    yservo.write(joystick_y_in);
+
+    Serial.print(" ManualY:");
+    Serial.println(joystick_y_in);
+  }
+
+/******BUOYANCY COMPENSATOR START*******/
+    /** while (endBuoyancy == LOW){
+      readSensors();//input singals. For troubleshooting purpose. **\
+
+/********* NO BUOYANCY COMPENSATOR
     //buoyancy control algorithm
-    bar_02.read();//read pressure sensor
-    depth = bar_02.depth(); //get depth value
-    IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz); //get IMU values
-    if (abs(az) < azThreshold){
+      bar_02.read();//read pressure sensor
+      depth = bar_02.depth(); //get depth value
+      IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz); //get IMU values
+      if (abs(az) < azThreshold){
       if (abs(setDepth - bar_02.depth()) < 0.1){
         //stop the motor if the z accelearation is within the threshold
         //and the submarine is at close to the set depth
@@ -205,65 +291,24 @@ void loop(){
       
     motorDriver(mode,pwm);
     }
-    /******BUOYANCY COMPENSATOR END*******/
-  switchManual();
+    BUOYANCY COMPENSATOR END*******/
+    
+/****  switchManual();
   if (manualSwitch==MANUAL){
     Serial.println("MANUAL");
-    jewel.fill(green);
+    // jewel.fill(green);
   } else {
     if (IMU.testConnection()!=true){
       IMU.initialize();
     }
     Serial.println("AUTOMATED");
-    jewel.fill(purple);
+    // jewel.fill(purple);
   }
-  jewel.show();
-  // Since x is not controlled by the IMU, we can put it outside of the for loop.
-  readInput();
-  joystick_x_in=servoLimiter(joystick_x_in);
-  xservo.write(joystick_x_in);
-  Serial.print("X:");
-  Serial.print(joystick_x_in);
+ ****/
   
-  if (manualSwitch==AUTOMATED) {
-    IMU.getMotion6 (&ax, &ay, &az, &gx, &gy, &gz);
-    /*Serial.print("IMU:");
-    Serial.print(ax);
-    Serial.print(" ");
-    Serial.print(gx);
-    Serial.print(" ");
-    Serial.print(ay, 4);
-    Serial.print(gy,4);
-    Serial.print(" ");
-    Serial.print(az, 4);
-    Serial.print(gz,4);*/
-    ax = map (ax, -17000, 21000, 0, 180) ;
-
-    if (ax>90-ORIGINERROR&&ax<90+ORIGINERROR){
-      ax=90;
-    } else if(ax>oldAX-SMOOTHINGERROR&&ax<oldAX+SMOOTHINGERROR){
-      ax=oldAX;
-    }
-
-    ax=servoLimiter(ax);
-    Serial.print(" AutomatedY:");
-    Serial.print(ax);
-
-    Serial.println("");
-
-    yservo.write (ax);
-    oldAX=ax;
-    //delay (200);
-  } else {
-    //Serial.println("Manual steering is on!");
-    joystick_y_in=servoLimiter(joystick_y_in);
-    yservo.write(joystick_y_in);
-
-    Serial.print(" ManualY:");
-    Serial.println(joystick_y_in);
-  }
-
 }
+
+
 /********FUNCTIONS********/
 void readInput() {
   joystick_x_in = analogRead(joyXPin);
@@ -283,20 +328,7 @@ void readInput() {
   }
 }
 
-void switchManual(){
-  manualSwitch = digitalRead(manualSwitchPin);
-  Serial.print("result of digitalread");
-  Serial.println(manualSwitch);
-  IMUWorking = IMU.testConnection();
-  Serial.println(IMUWorking);
-  if (IMUWorking){
-    manualSwitch = digitalRead(manualSwitchPin);
-  } else {
-    manualSwitch = MANUAL;
-  }
-  manualSwitch=AUTOMATED;
-}
-
+//Define a limited range of motion for servos so the servos can't turn the go beyond the stall (we think)
 int servoLimiter(int inputDegrees){
   if (inputDegrees>90+SERVORANGE){
     return 90+SERVORANGE;
@@ -307,55 +339,81 @@ int servoLimiter(int inputDegrees){
   }
 }
 
-/***************MOTOR DRIVER****************/
-void motorDriver(int motorMode, int motorPwm){
-  // Check if the motor enable is assingned properly
-  if (motorEnable == HIGH || motorEnable == LOW){
-    
-    // Check if the motor mode is assigned correctly
-    if (motorMode == FW || motorMode == BW){
+// ANNA? 
+/** Reformat this to make it a code switch instead of a manual switch
+void switchManual(){
+    manualSwitch = digitalRead(manualSwitchPin);
+    Serial.print("result of digitalread");
+    Serial.println(manualSwitch);
+    IMUWorking = IMU.testConnection();
+    Serial.println(IMUWorking);
+    if (IMUWorking){
+      manualSwitch = digitalRead(manualSwitchPin);
+    } else {
+      manualSwitch = MANUAL;
+    }
+    manualSwitch=AUTOMATED;
+  }
+***/
 
-      // Check if the pwm value is within a correct range
-      if (motorPwm >= 0 || motorPwm <= 255){ 
-        digitalWrite(dirPin, motorMode); // assign the mode of the motor
-        digitalWrite(slpPin, motorEnable); // assign the slp pin of the driver
-        analogWrite(pwmPin, motorPwm); // assign the pwm value of the motor
-        Serial.print("MODE:");
-        Serial.print(motorMode); // motor mode
-        Serial.print("\t");
-        Serial.print("PWM:");
-        Serial.print(motorPwm); // motor PWM
-        Serial.print("\t");
-      }
-      
-      else {
-        digitalWrite(slpPin, LOW); // turn off the motor driver
-        Serial.println("Error: motor pwm value not assingned in a correct range. End buoyancy compensator...");
-        endBuoyancy = HIGH;
-      }
-    }
-    else if(motorMode == BR){
-      analogWrite(pwmPin, LOW); // assign LOW to pwmPin to break
-      Serial.print("MODE:2\t"); // motor mode (BR = 2)
-      Serial.print("PWM:0\t"); // motor mode (LOW = 0)
-    }
+
+/*** Start No Motor Driver because no buoyancy compensator 
+
+  ***************MOTOR DRIVER****************
+    void motorDriver(int motorMode, int motorPwm){
+      // Check if the motor enable is assingned properly
+      if (motorEnable == HIGH || motorEnable == LOW){
     
+        // Check if the motor mode is assigned correctly
+        if (motorMode == FW || motorMode == BW){
+
+          // Check if the pwm value is within a correct range
+          if (motorPwm >= 0 || motorPwm <= 255){ 
+            digitalWrite(dirPin, motorMode); // assign the mode of the motor
+            digitalWrite(slpPin, motorEnable); // assign the slp pin of the driver
+            analogWrite(pwmPin, motorPwm); // assign the pwm value of the motor
+            Serial.print("MODE:");
+            Serial.print(motorMode); // motor mode
+            Serial.print("\t");
+            Serial.print("PWM:");
+            Serial.print(motorPwm); // motor PWM
+            Serial.print("\t");
+          }
+      
+          else {
+            digitalWrite(slpPin, LOW); // turn off the motor driver
+            Serial.println("Error: motor pwm value not assingned in a correct range. End buoyancy compensator...");
+            endBuoyancy = HIGH;
+          }
+        }
+      
+        else if(motorMode == BR){
+          analogWrite(pwmPin, LOW); // assign LOW to pwmPin to break
+          Serial.print("MODE:2\t"); // motor mode (BR = 2)
+          Serial.print("PWM:0\t"); // motor mode (LOW = 0)
+        }
+    
+        else {
+          digitalWrite(slpPin, LOW); // turn off the motor driver
+          Serial.println("Error: motor mode not assigned correctly. End buoyancy compensator...");
+          endBuoyancy = HIGH;
+      }
+    }
+
     else {
       digitalWrite(slpPin, LOW); // turn off the motor driver
-      Serial.println("Error: motor mode not assigned correctly. End buoyancy compensator...");
+      Serial.println("Error: motor driver not enabled correctly. End buoyancy compensator...");
       endBuoyancy = HIGH;
     }
   }
 
-  else {
-    digitalWrite(slpPin, LOW); // turn off the motor driver
-    Serial.println("Error: motor driver not enabled correctly. End buoyancy compensator...");
-    endBuoyancy = HIGH;
-  }
-}
+End No motor driver because no buoyancy compensator*******/
+
 
 /**********READING SENSOR INPUTS**************/
-void readSensors() {
+
+/***No testing occurring  
+ *  void readSensors() {
   // Read the input values (use for troubleshooting input sensors)
   Serial.print("READ SENSOR:\t");
   //Serial.print("FLT:");
@@ -390,3 +448,4 @@ void readSensors() {
   Serial.print(bar_02.altitude()); 
   Serial.println(" m above mean sea level");
 }
+Testing not currently operational***/
